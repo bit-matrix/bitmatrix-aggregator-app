@@ -27,7 +27,6 @@ const getVOuts = async (blockHash) => {
 
 const getLastBlockHeight = async () => {
   return axios.get(`${esploraUrl + "blocks/tip/height"}`).then((response) => {
-    console.log(response.data);
     return response.data;
   });
 };
@@ -38,19 +37,53 @@ const getBlocks = async () => {
   });
 };
 
+const getBlocksWithIndex = async (startHeight) => {
+  return axios
+    .get(`${esploraUrl}` + "blocks/" + startHeight)
+    .then((response) => {
+      return response.data;
+    })
+    .catch((err) => console.log(err));
+};
+
 const app = async () => {
-  const blocks = await getBlocks();
+  let dummyInput = 1553646;
+  let blockPromises = [];
+
+  const lastBlockHeight = await getLastBlockHeight();
+
+  console.log(lastBlockHeight - dummyInput);
+
+  while (dummyInput <= lastBlockHeight) {
+    if (lastBlockHeight - dummyInput < 10) {
+      console.log("1");
+      blockPromises.push(getBlocks());
+      break;
+    } else {
+      console.log("2");
+      dummyInput += 9;
+      blockPromises.push(getBlocksWithIndex(dummyInput));
+    }
+  }
+
+  const unsortedBlocks = await Promise.all(blockPromises);
+
+  const mergedBlocks = [].concat.apply([], unsortedBlocks);
+
+  const blocks = mergedBlocks.sort((a, b) => a.height - b.height);
+
   const txpromises = blocks.map(async (bl) => {
     return getVOuts(bl.id);
   });
+
   const vouts = await Promise.all(txpromises);
+
   const finalData = blocks.map((bl, index) => {
     return { blockHeight: bl.height, txout: vouts[index] };
   });
+
+  console.log(finalData);
   return finalData;
-  // const lastBlockHeight = await getLastBlockHeight();
-  // console.log(lastBlockHeight);
 };
 
 app();
-getLastBlockHeight();
